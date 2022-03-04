@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PACKAGES="qemu-utils p7zip test1 test2"
+PACKAGES="qemu-utils p7zip"
 COMMAND=""
 INPUT_FILE=""
 OUTPUT_FILE=""
@@ -37,7 +37,7 @@ install_package()
 {
    echo "Installing packages..."
 
-   #sudo apt-get install $@ -y
+   sudo apt-get install $@ -y
 }
 
 convert()
@@ -56,12 +56,12 @@ convert()
 compress()
 {
    echo "Compressing image..."
+
+   7z a $OUTPUT_FILE.7z $OUTPUT_FILE
 }
 
 parse_args()
 {
-  # todo:  Option not found error
-
    if [ $# -eq 0 ] ; then
       help
      exit 0
@@ -91,6 +91,10 @@ parse_args()
          h)
             help
             exit 0
+            ;;
+         ?)
+            echo "Error: Bad option"
+            exit 1
             ;;
       esac
    done
