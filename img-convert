@@ -1,30 +1,43 @@
 #!/bin/bash
 
-PACKAGE="qemu-utils"
+PACKAGES="qemu-utils p7zip test1 test2"
 COMMAND=""
 INPUT_FILE=""
 OUTPUT_FILE=""
 INPUT_TYPE=""
 OUTPUT_TYPE=""
+COMPRESS=0
 
 query_package()
 {
    echo "Checking installed packages..."
 
-   local pkg=$(dpkg-query -l $PACKAGE | grep -o $PACKAGE)
+   local missing=()
+   IFS=' '
 
-   if [ ! $pkg ] ; then
-       install_package
+   read -ra pkgs <<< "$PACKAGES"
+
+   for val in "${pkgs[@]}"
+   do
+      local result=$(dpkg-query -l $val | grep -o $val)
+
+      if [ ! $result ] ; then
+         missing+=($val)
+      fi
+   done
+
+   if [ $missing ] ; then
+      install_package ${missing[@]}
+   else
+      echo "Required packages already installed....skipping"
    fi
-
-   echo "qemu-utils is installed....skipping"
 }
 
 install_package()
 {
-   echo "Installing package $PACKAGE..."
+   echo "Installing packages..."
 
-   sudo apt-get install $PACKAGE
+   #sudo apt-get install $@ -y
 }
 
 convert()
@@ -34,16 +47,27 @@ convert()
    sudo qemu-img $COMMAND -f $INPUT_TYPE $INPUT_FILE -O $OUTPUT_TYPE $OUTPUT_FILE
 
    echo "Conversion process complete"
+
+   if [ $COMPRESS -eq 1 ] ; then
+      compress $OUTPUT_FILE
+   fi
+}
+
+compress()
+{
+   echo "Compressing image..."
 }
 
 parse_args()
 {
+  # todo:  Option not found error
+
    if [ $# -eq 0 ] ; then
       help
      exit 0
    fi
 
-   while getopts "c:f:o:i:t:h" option ;
+   while getopts "c:f:o:i:t:zh" option ;
    do
       case "${option}" in
          c)
@@ -60,6 +84,9 @@ parse_args()
             ;;
          t)
             OUTPUT_TYPE=${OPTARG}
+            ;;
+         z)
+            COMPRESS=1
             ;;
          h)
             help
