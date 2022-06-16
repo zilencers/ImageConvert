@@ -1,6 +1,10 @@
 #!/bin/bash
 
-PACKAGES="qemu-utils p7zip"
+APT_PKGS="qemu-utils p7zip"
+PACMAN_PKGS="qemu-img p7zip "
+DNF_PKGS=""
+DISTRO=(arch debian ubuntu redhat)
+OS="${OS:-NULL}"
 COMMAND=""
 INPUT_FILE=""
 OUTPUT_FILE=""
@@ -8,18 +12,56 @@ INPUT_TYPE=""
 OUTPUT_TYPE=""
 COMPRESS=0
 
+get_os()
+{
+    for val in "${DISTRO[@]}"
+    do
+	local distro=$(cat /etc/*release | grep $val)
+	if [ -z ${distro+x} ]; then 
+	    echo "Unknown Distro" 
+	else 
+	    OS=$val
+	fi
+	break
+    done
+}
+
 query_package()
 {
    echo "Checking installed packages..."
 
    local missing=()
+   local pkg_query=""
    IFS=' '
 
-   read -ra pkgs <<< "$PACKAGES"
+   case $OS in
+       "arch")
+          read -ra pkgs <<< "$PACMAN_PKGS"
+	  pkg_query="pacman -Q"
+	  ;;
+
+       "debian")
+          read -ra pkgs <<< "$APT_PKGS"
+	  pkg_query="dpkg-query -l"
+	  ;;
+
+       "ubuntu")
+	  read -ra pkgs <<< "$APT_PKGS"
+	  pkg_query="dpkg-query -l"
+	  ;;
+	  
+       "redhat")
+	  read -ra pkgs <<< "$DNF_PKGS"
+	  ;;
+
+       *)
+	  exit 0
+	  ;;
+    esac
 
    for val in "${pkgs[@]}"
    do
-      local result=$(dpkg-query -l $val | grep -o $val)
+      local result=$($pkg_query $val | grep -o $val )
 
       if [ ! $result ] ; then
          missing+=($val)
@@ -37,7 +79,23 @@ install_package()
 {
    echo "Installing packages..."
 
-   sudo apt-get install $@ -y
+   case $OS in
+       "arch")
+	   sudo pacman -S $@
+           ;;
+       "debian")
+	   sudo apt-get install $@ -y
+	   ;;
+      "ubuntu")
+	   sudo apt-get install $@ -y
+	   ;;
+      "redhat")
+           sudo dnf install $@
+	   ;;
+      *)
+	   exit 0
+	   ;;
+   esac
 }
 
 convert()
@@ -55,8 +113,7 @@ convert()
 
 compress()
 {
-   echo "Compressing image..."
-
+   echo "Compress image ..."
    7z a $OUTPUT_FILE.7z $OUTPUT_FILE
 }
 
@@ -108,14 +165,17 @@ help()
    echo " -o               output file"
    echo " -i               input file type (qcow2, raw, vdi, vmdk)"
    echo " -t               output file type (qcow2,raw, vdi, vmdk)"
+   echo " -z               compress image"
    echo " -h               print help"
 }
 
 main()
 {
+   get_os
    parse_args $@
    query_package
    convert
+   compress
 }
 
 main $@
