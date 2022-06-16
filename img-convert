@@ -175,7 +175,6 @@ main()
    parse_args $@
    query_package
    convert
-   compress
 }
 
 main $@
